@@ -1,0 +1,23 @@
+name: hasabkey
+description: Voice dictation floating bubble for Android.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_overlay_window: ^0.4.3
+  record: ^6.2.0
+  web_socket_channel: ^3.0.1
+  permission_handler: ^11.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
