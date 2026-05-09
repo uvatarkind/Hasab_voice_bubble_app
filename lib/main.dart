@@ -53,6 +53,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _micGranted = false;
   bool _overlayGranted = false;
   bool _accessibilityEnabled = false;
+  bool _notificationGranted = false;
 
   @override
   void initState() {
@@ -106,6 +107,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     setState(() {
       _micGranted = mic;
+      _notificationGranted = notification;
       _overlayGranted = overlay;
       _accessibilityEnabled = accessibility;
       _overlayActive = active;
@@ -198,23 +200,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              const SizedBox(height: 32),
-              const Text(
-                'Hasabkey',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Voice dictation overlay',
-                style: TextStyle(fontSize: 14, color: Colors.grey[500]),
-              ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               _buildPermissionCard(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -244,26 +232,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget _buildPermissionCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFF15151F),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildRow('Microphone', _micGranted),
-          const SizedBox(height: 8),
-          _buildRow('Overlay', _overlayGranted),
-          const SizedBox(height: 8),
-          _buildRow('Accessibility', _accessibilityEnabled),
-          const Divider(height: 20, color: Colors.white24),
+          const Text(
+            'Permissions',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _buildPermissionTile(
+            title: 'Display over apps',
+            granted: _overlayGranted,
+            onTap: () async {
+              await FlutterOverlayWindow.requestPermission();
+              await _checkAll();
+            },
+          ),
+          const Divider(height: 24, color: Colors.white24),
+          _buildPermissionTile(
+            title: 'Accessibility Service',
+            granted: _accessibilityEnabled,
+            onTap: () async {
+              try {
+                await _textChannel.invokeMethod('openAccessibilitySettings');
+              } catch (_) {}
+            },
+          ),
+          const Divider(height: 24, color: Colors.white24),
+          _buildPermissionTile(
+            title: 'Microphone',
+            granted: _micGranted,
+            onTap: () async {
+              await Permission.microphone.request();
+              await _checkAll();
+            },
+          ),
+          const Divider(height: 24, color: Colors.white24),
+          _buildPermissionTile(
+            title: 'Notifications',
+            granted: _notificationGranted,
+            onTap: () async {
+              await Permission.notification.request();
+              await _checkAll();
+            },
+          ),
+          const SizedBox(height: 12),
           Text(
             'Bubble: ${_overlayActive ? "Active" : "Inactive"}',
             style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 14,
-              color: _overlayActive ? Colors.green : Colors.grey,
+              fontSize: 13,
+              color: _overlayActive ? Colors.greenAccent : Colors.grey,
             ),
           ),
         ],
@@ -271,17 +299,55 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildRow(String label, bool ok) {
-    return Row(
-      children: [
-        Icon(
-          ok ? Icons.check_circle : Icons.cancel,
-          color: ok ? Colors.green : Colors.red,
-          size: 18,
+  Widget _buildPermissionTile({
+    required String title,
+    required bool granted,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check,
+                        size: 14,
+                        color: granted ? Colors.greenAccent : Colors.grey,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        granted ? 'Granted' : 'Not granted',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: granted ? Colors.greenAccent : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white54),
+          ],
         ),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.white)),
-      ],
+      ),
     );
   }
 }

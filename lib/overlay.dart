@@ -19,7 +19,8 @@ class BubbleOverlay extends StatefulWidget {
   State<BubbleOverlay> createState() => _BubbleOverlayState();
 }
 
-class _BubbleOverlayState extends State<BubbleOverlay> {
+class _BubbleOverlayState extends State<BubbleOverlay>
+    with SingleTickerProviderStateMixin {
   static const _textChannel = MethodChannel('com.hasabkey.voicebubble/text');
 
   bool _isRecording = false;
@@ -33,8 +34,11 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
   String _currentInterim = '';
   String _displayText = '';
 
+  AnimationController? _orbController;
+
   @override
   void dispose() {
+    _orbController?.dispose();
     _stopRecording();
     super.dispose();
   }
@@ -46,6 +50,26 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
     } else {
       _startRecording();
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureOrbController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _ensureOrbController();
+  }
+
+  void _ensureOrbController() {
+    if (_orbController != null) return;
+    _orbController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
   }
 
   void _handleLongPress() {
@@ -94,7 +118,10 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
       debugPrint('[Hasabkey][overlay] interim: $text');
       _currentInterim = text;
       _updateDisplay();
-      // Send interim text to main app for real-time insertion
+      // Send interim text for real-time insertion
+      _textChannel
+          .invokeMethod('insertInterim', {'text': text})
+          .catchError((_) {});
       FlutterOverlayWindow.shareData({'action': 'insertInterim', 'text': text});
     };
     _asr!.onFinalResult = (text) {
@@ -102,7 +129,7 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
       _finalSegments.add(text);
       _currentInterim = '';
       _updateDisplay();
-      // Send final segment to main app
+      _textChannel.invokeMethod('insertText', {'text': text}).catchError((_) {});
       FlutterOverlayWindow.shareData({'action': 'insertText', 'text': text});
     };
     _asr!.onError = (error) {
@@ -142,13 +169,20 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
       debugPrint('[Hasabkey][overlay] _stopRecording early return: not recording');
       return;
     }
-    
+
+    if (mounted) {
+      setState(() {
+        _isRecording = false;
+        _showCloseArea = false;
+        _displayText = '';
+      });
+    }
+
+    await FlutterOverlayWindow.resizeOverlay(120, 120, true);
+    await FlutterOverlayWindow.updateFlag(OverlayFlag.defaultFlag);
+
     _audioSub?.cancel();
     _audioSub = null;
-
-    setState(() {
-      _displayText = 'Closing...';
-    });
 
     try {
       // Flush remaining buffered audio
@@ -182,19 +216,6 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
       // Always copy to clipboard as safety net
       await Clipboard.setData(ClipboardData(text: text));
     }
-
-    // Step 2: Shrink overlay BEFORE trying insertion
-    // This lets the underlying text field regain focus
-    if (mounted) {
-      setState(() {
-        _isRecording = false;
-        _displayText = '';
-      });
-    }
-
-    debugPrint('[Hasabkey][overlay] UI reset, resizing to 120x120');
-    await FlutterOverlayWindow.resizeOverlay(120, 120, true);
-    await FlutterOverlayWindow.updateFlag(OverlayFlag.defaultFlag);
 
     // Give Android a moment to return focus to the underlying app
     await Future.delayed(const Duration(milliseconds: 300));
@@ -300,22 +321,7 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
           width: 80,
           height: 80,
           alignment: Alignment.center,
-          child: Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.blue.withOpacity(0.9),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.mic, color: Colors.white, size: 30),
-          ),
+          child: _buildOrb(),
         ),
       );
     }
@@ -376,5 +382,117 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
         ),
       ),
     );
+  }
+
+  Widget _buildOrb() {
+    final controller = _orbController;
+    if (controller == null) {
+      return const _StaticOrb();
+    }
+    return _AnimatedOrb(controller: controller);
+  }
+}
+
+class _StaticOrb extends StatelessWidget {
+  const _StaticOrb();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(64, 64),
+      painter: _OrbPainter(progress: 0.0),
+      child: const SizedBox(
+        width: 64,
+        height: 64,
+        child: Icon(Icons.mic, color: Colors.white, size: 28),
+      ),
+    );
+  }
+}
+
+class _AnimatedOrb extends StatelessWidget {
+  const _AnimatedOrb({required this.controller});
+
+  final Animation<double> controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        return CustomPaint(
+          size: const Size(64, 64),
+          painter: _OrbPainter(progress: controller.value),
+          child: const SizedBox(
+            width: 64,
+            height: 64,
+            child: Icon(Icons.mic, color: Colors.white, size: 28),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _OrbPainter extends CustomPainter {
+  _OrbPainter({required this.progress});
+
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          const Color(0xFF9A6BFF).withOpacity(0.9),
+          const Color(0xFF5B2BFF).withOpacity(0.55),
+          const Color(0xFF1A0B2E).withOpacity(0.0),
+        ],
+        stops: const [0.0, 0.6, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: radius * 1.2));
+    canvas.drawCircle(center, radius * 1.05, glowPaint);
+
+    final basePaint = Paint()
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: 6.283185307179586,
+        colors: [
+          const Color(0xFFB67BFF),
+          const Color(0xFF6A35FF),
+          const Color(0xFF2A124F),
+          const Color(0xFFB67BFF),
+        ],
+        stops: const [0.0, 0.45, 0.75, 1.0],
+        transform: GradientRotation(progress * 6.283185307179586),
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    final blurPaint = Paint()
+      ..color = const Color(0xFF7B4CFF).withOpacity(0.25)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+
+    canvas.drawCircle(center, radius, blurPaint);
+    canvas.drawCircle(center, radius * 0.95, basePaint);
+
+    final wavePaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          const Color(0xFFFFFFFF).withOpacity(0.0),
+          const Color(0xFFFFFFFF).withOpacity(0.35),
+          const Color(0xFFFFFFFF).withOpacity(0.0),
+        ],
+        stops: const [0.2, 0.5, 0.8],
+        begin: Alignment(-1 + (progress * 2), -1),
+        end: Alignment(1 + (progress * 2), 1),
+      ).createShader(Rect.fromCircle(center: center, radius: radius));
+
+    canvas.drawCircle(center, radius * 0.75, wavePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrbPainter oldDelegate) {
+    return oldDelegate.progress != progress;
   }
 }
