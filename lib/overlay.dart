@@ -20,7 +20,7 @@ class BubbleOverlay extends StatefulWidget {
 }
 
 class _BubbleOverlayState extends State<BubbleOverlay> {
-  static const _textChannel = MethodChannel('com.hasabkey.bubble/text');
+  static const _textChannel = MethodChannel('com.hasabkey.voicebubble/text');
 
   bool _isRecording = false;
   bool _showCloseArea = false;
@@ -171,7 +171,7 @@ class _BubbleOverlayState extends State<BubbleOverlay> {
 
       // Step 1: Write pending file FIRST (guaranteed fallback)
       try {
-        final dir = Directory('/data/data/com.hasabkey.bubble/files');
+        final dir = Directory('/data/data/com.hasabkey.voicebubble/files');
         final file = File('${dir.path}/pending_insert.txt');
         await file.writeAsString(text);
         debugPrint('[Hasabkey][overlay] pending file written');

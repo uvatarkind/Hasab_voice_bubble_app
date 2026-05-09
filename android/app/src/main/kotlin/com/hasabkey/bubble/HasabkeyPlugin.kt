@@ -1,4 +1,4 @@
-package com.hasabkey.bubble
+package com.hasabkey.voicebubble
 
 import android.content.Context
 import android.content.Intent
@@ -16,8 +16,8 @@ class HasabkeyPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
     companion object {
         private const val TAG = "HasabkeyPlugin"
-        private const val CHANNEL = "com.hasabkey.bubble/text"
-        private const val ACTION_INSERT = "com.hasabkey.bubble.INSERT_TEXT"
+        private const val CHANNEL = "com.hasabkey.voicebubble/text"
+        private const val ACTION_INSERT = "com.hasabkey.voicebubble.INSERT_TEXT"
     }
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
@@ -56,7 +56,7 @@ class HasabkeyPlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
                 ) ?: ""
                 val pkg = ctx.packageName
                 val enabled = enabledServices.contains("$pkg/.TextInsertionAccessibilityService")
-                    || enabledServices.contains("$pkg/com.hasabkey.bubble.TextInsertionAccessibilityService")
+                    || enabledServices.contains("$pkg/com.hasabkey.voicebubble.TextInsertionAccessibilityService")
                     || enabledServices.contains("TextInsertionAccessibilityService")
                 result.success(enabled)
             }

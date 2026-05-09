@@ -1,4 +1,4 @@
-package com.hasabkey.bubble
+package com.hasabkey.voicebubble
 
 import android.accessibilityservice.AccessibilityService
 import android.content.BroadcastReceiver
@@ -18,7 +18,7 @@ class TextInsertionAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "HasabkeyA11y"
-        private const val ACTION_INSERT = "com.hasabkey.bubble.INSERT_TEXT"
+        private const val ACTION_INSERT = "com.hasabkey.voicebubble.INSERT_TEXT"
         private const val PENDING_FILE = "pending_insert.txt"
 
         private var instance: TextInsertionAccessibilityService? = null

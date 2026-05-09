@@ -1,4 +1,4 @@
-package com.hasabkey.bubble
+package com.hasabkey.voicebubble
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

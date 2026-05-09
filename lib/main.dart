@@ -47,7 +47,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  static const _textChannel = MethodChannel('com.hasabkey.bubble/text');
+  static const _textChannel = MethodChannel('com.hasabkey.voicebubble/text');
 
   bool _overlayActive = false;
   bool _micGranted = false;
