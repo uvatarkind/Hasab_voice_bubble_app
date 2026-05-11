@@ -1,8 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'overlay.dart';
+import 'notes_page.dart';
+import 'permission_setup_page.dart';
+import 'settings_page.dart';
+import 'splash_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +40,14 @@ class HasabkeyApp extends StatelessWidget {
           surface: Color(0xFF1A1A2E),
         ),
       ),
-      home: const HomePage(),
+      initialRoute: '/splash',
+      routes: {
+        '/splash': (_) => const SplashScreen(),
+        '/permissions': (_) => const PermissionSetupPage(),
+        '/home': (_) => const HomePage(),
+        '/notes': (_) => const NotesPage(),
+        '/settings': (_) => const SettingsPage(),
+      },
     );
   }
 }
@@ -48,6 +61,9 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static const _textChannel = MethodChannel('com.hasabkey.voicebubble/text');
+  static Stream<dynamic>? _overlayStream;
+
+  StreamSubscription<dynamic>? _overlaySub;
 
   bool _overlayActive = false;
   bool _micGranted = false;
@@ -67,6 +83,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _overlaySub?.cancel();
+    _overlaySub = null;
     super.dispose();
   }
 
@@ -79,7 +97,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// Listens for messages from the overlay (text insertion requests).
   void _listenOverlay() {
-    FlutterOverlayWindow.overlayListener.listen((data) async {
+    if (_overlaySub != null) return;
+    _overlayStream ??= FlutterOverlayWindow.overlayListener.asBroadcastStream();
+    _overlaySub = _overlayStream!.listen((data) async {
       debugPrint('[Hasabkey] overlay message: $data');
       if (data is Map) {
         if (data['action'] == 'insertText') {
@@ -195,157 +215,82 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            children: [
-              const SizedBox(height: 24),
-              _buildPermissionCard(),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _toggleBubble,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _overlayActive ? Colors.red : Colors.green,
-                    foregroundColor: Colors.white,
-                    textStyle: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(_overlayActive ? 'Stop Bubble' : 'Start Bubble'),
-                ),
-              ),
-            ],
+      appBar: AppBar(
+        title: const Text('Hasab Bubble'),
+        actions: [
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/notes'),
+            icon: const Icon(Icons.note_alt_outlined),
+            tooltip: 'Notes',
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPermissionCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF15151F),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Permissions',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildPermissionTile(
-            title: 'Display over apps',
-            granted: _overlayGranted,
-            onTap: () async {
-              await FlutterOverlayWindow.requestPermission();
-              await _checkAll();
-            },
-          ),
-          const Divider(height: 24, color: Colors.white24),
-          _buildPermissionTile(
-            title: 'Accessibility Service',
-            granted: _accessibilityEnabled,
-            onTap: () async {
-              try {
-                await _textChannel.invokeMethod('openAccessibilitySettings');
-              } catch (_) {}
-            },
-          ),
-          const Divider(height: 24, color: Colors.white24),
-          _buildPermissionTile(
-            title: 'Microphone',
-            granted: _micGranted,
-            onTap: () async {
-              await Permission.microphone.request();
-              await _checkAll();
-            },
-          ),
-          const Divider(height: 24, color: Colors.white24),
-          _buildPermissionTile(
-            title: 'Notifications',
-            granted: _notificationGranted,
-            onTap: () async {
-              await Permission.notification.request();
-              await _checkAll();
-            },
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Bubble: ${_overlayActive ? "Active" : "Inactive"}',
-            style: TextStyle(
-              fontSize: 13,
-              color: _overlayActive ? Colors.greenAccent : Colors.grey,
-            ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pushNamed('/settings'),
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPermissionTile({
-    required String title,
-    required bool granted,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    onTap: _toggleBubble,
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _overlayActive ? Colors.red : Colors.green,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (_overlayActive ? Colors.red : Colors.green)
+                                .withOpacity(0.35),
+                            blurRadius: 24,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _overlayActive ? Icons.stop : Icons.mic,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            _overlayActive ? 'Stop' : 'Start',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check,
-                        size: 14,
-                        color: granted ? Colors.greenAccent : Colors.grey,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        granted ? 'Granted' : 'Not granted',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: granted ? Colors.greenAccent : Colors.grey,
-                        ),
-                      ),
-                    ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Bubble: ${_overlayActive ? "Active" : "Inactive"}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _overlayActive ? Colors.greenAccent : Colors.grey,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const Icon(Icons.chevron_right, color: Colors.white54),
-          ],
+          ),
         ),
       ),
     );
