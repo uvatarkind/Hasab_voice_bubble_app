@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'overlay.dart';
-import 'notes_page.dart';
-import 'permission_setup_page.dart';
-import 'settings_page.dart';
+import 'bubble/overlay.dart';
+import 'note/notes_page.dart';
+import 'setting/permission_setup_page.dart';
+import 'setting/settings_page.dart';
 import 'splash_screen.dart';
+import 'widget/bubble_toggle_button.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,6 +65,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static Stream<dynamic>? _overlayStream;
 
   StreamSubscription<dynamic>? _overlaySub;
+  Timer? _overlayPoller;
+  bool _overlayPollInFlight = false;
+
+  int _forceInactiveUntilMs = 0;
+  bool _forceInactive = false;
 
   bool _overlayActive = false;
   bool _micGranted = false;
@@ -77,6 +83,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkAll();
     _listenOverlay();
+    _startOverlayPolling();
     debugPrint('[Hasabkey] initState complete');
   }
 
@@ -85,6 +92,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _overlaySub?.cancel();
     _overlaySub = null;
+    _overlayPoller?.cancel();
+    _overlayPoller = null;
     super.dispose();
   }
 
@@ -113,9 +122,45 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           try {
             await _textChannel.invokeMethod('insertInterim', {'text': data['text']});
           } catch (_) {}
+        } else if (data['action'] == 'overlayClosed') {
+          debugPrint('[Hasabkey] overlay closed by user');
+          if (mounted) {
+            setState(() {
+              _overlayActive = false;
+            });
+          }
+          _forceInactive = true;
+          _forceInactiveUntilMs =
+              DateTime.now().millisecondsSinceEpoch + 5000;
+          Future.delayed(const Duration(milliseconds: 300), _checkAll);
         }
       }
     });
+  }
+
+  void _startOverlayPolling() {
+    _overlayPoller ??= Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) async {
+        if (_overlayPollInFlight || !mounted) return;
+        _overlayPollInFlight = true;
+        try {
+          final active = await FlutterOverlayWindow.isActive();
+          if (!mounted) return;
+          if (!active && _forceInactive) {
+            _forceInactive = false;
+            _forceInactiveUntilMs = 0;
+          }
+          if (!_forceInactive && _overlayActive != active) {
+            setState(() {
+              _overlayActive = active;
+            });
+          }
+        } finally {
+          _overlayPollInFlight = false;
+        }
+      },
+    );
   }
 
   Future<void> _checkAll() async {
@@ -124,17 +169,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final overlay = await FlutterOverlayWindow.isPermissionGranted();
     final accessibility = await _checkAccessibility();
     final active = await FlutterOverlayWindow.isActive();
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final effectiveActive =
+      _forceInactive || nowMs < _forceInactiveUntilMs ? false : active;
 
     setState(() {
       _micGranted = mic;
       _notificationGranted = notification;
       _overlayGranted = overlay;
       _accessibilityEnabled = accessibility;
-      _overlayActive = active;
+      _overlayActive = effectiveActive;
     });
 
     debugPrint(
-      '[Hasabkey] permissions mic=$mic notification=$notification overlay=$overlay accessibility=$accessibility active=$active',
+      '[Hasabkey] permissions mic=$mic notification=$notification overlay=$overlay accessibility=$accessibility active=$effectiveActive',
     );
   }
 
@@ -152,9 +200,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _toggleBubble() async {
     debugPrint('[Hasabkey] toggle bubble (active=$_overlayActive)');
     if (_overlayActive) {
+      if (mounted) {
+        setState(() {
+          _overlayActive = false;
+        });
+      }
+      _forceInactive = true;
+      _forceInactiveUntilMs =
+          DateTime.now().millisecondsSinceEpoch + 5000;
       await FlutterOverlayWindow.closeOverlay();
       debugPrint('[Hasabkey] overlay close requested');
+      Future.delayed(const Duration(milliseconds: 300), _checkAll);
+      return;
     } else {
+      _forceInactive = false;
+      _forceInactiveUntilMs = 0;
       // Check permissions first
       if (!_micGranted) {
         final status = await Permission.microphone.request();
@@ -237,49 +297,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Material(
-                  color: Colors.transparent,
-                  shape: const CircleBorder(),
-                  child: InkWell(
-                    onTap: _toggleBubble,
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _overlayActive ? Colors.red : Colors.green,
-                        boxShadow: [
-                          BoxShadow(
-                            color: (_overlayActive ? Colors.red : Colors.green)
-                                .withOpacity(0.35),
-                            blurRadius: 24,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _overlayActive ? Icons.stop : Icons.mic,
-                            color: Colors.white,
-                            size: 48,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            _overlayActive ? 'Stop' : 'Start',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+                    BubbleToggleButton(
+                      isActive: _overlayActive,
+                      onTap: _toggleBubble,
                     ),
-                  ),
-                ),
                 const SizedBox(height: 12),
                 Text(
                   'Bubble: ${_overlayActive ? "Active" : "Inactive"}',

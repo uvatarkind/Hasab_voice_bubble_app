@@ -5,9 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import 'package:hasabkey/bubble/asr_client.dart';
 import 'package:record/record.dart';
-
-import 'asr_client.dart';
 
 /// 500ms of 16-bit mono at 16kHz = 16000 bytes
 const _chunkSize = 16000;
@@ -24,7 +23,8 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   static const _textChannel = MethodChannel('com.hasabkey.voicebubble/text');
 
   bool _isRecording = false;
-  bool _showCloseArea = false;
+  bool _showLanguageSheet = false;
+  String _selectedLanguage = 'Amharic';
   AsrClient? _asr;
   AudioRecorder? _recorder;
   StreamSubscription? _audioSub;
@@ -33,12 +33,14 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   final List<String> _finalSegments = [];
   String _currentInterim = '';
   String _displayText = '';
+  final ScrollController _transcriptScroll = ScrollController();
 
   AnimationController? _orbController;
 
   @override
   void dispose() {
     _orbController?.dispose();
+    _transcriptScroll.dispose();
     _stopRecording();
     super.dispose();
   }
@@ -55,6 +57,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   @override
   void initState() {
     super.initState();
+    _showLanguageSheet = false;
     _ensureOrbController();
   }
 
@@ -78,26 +81,43 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     HapticFeedback.heavyImpact();
     
     setState(() {
-      _showCloseArea = true;
+      _showLanguageSheet = true;
     });
-    // Increase window size to ensure the "Close" pill is clickable
-    FlutterOverlayWindow.resizeOverlay(120, 160, true);
-    
-    // Hide close area after 4 seconds if not used
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted && _showCloseArea) {
-        setState(() {
-          _showCloseArea = false;
-        });
-        if (!_isRecording) {
-          FlutterOverlayWindow.resizeOverlay(120, 120, true);
-        }
-      }
+    // Increase window size to show the language selector card
+    FlutterOverlayWindow.resizeOverlay(320, 160, true);
+  }
+
+  Future<void> _applyOverlaySize() async {
+    if (_isRecording) {
+      await FlutterOverlayWindow.resizeOverlay(120, 180, false);
+      return;
+    }
+
+    if (_showLanguageSheet) {
+      await FlutterOverlayWindow.resizeOverlay(320, 160, true);
+      return;
+    }
+
+    await FlutterOverlayWindow.resizeOverlay(120, 120, true);
+  }
+
+  void _selectLanguage(String label) {
+    if (!mounted) return;
+    setState(() {
+      _selectedLanguage = label;
+      _showLanguageSheet = false;
     });
+    _applyOverlaySize();
   }
 
   Future<void> _closeBubble() async {
+    if (mounted) {
+      setState(() {
+        _showLanguageSheet = false;
+      });
+    }
     await _stopRecording();
+    FlutterOverlayWindow.shareData({'action': 'overlayClosed'});
     await FlutterOverlayWindow.closeOverlay();
   }
 
@@ -110,7 +130,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       _displayText = 'Listening\u2026';
     });
 
-    await FlutterOverlayWindow.resizeOverlay(WindowSize.matchParent, 120, false);
+    await FlutterOverlayWindow.resizeOverlay(120, 180, false);
     await FlutterOverlayWindow.updateFlag(OverlayFlag.flagNotFocusable);
 
     _asr = AsrClient();
@@ -166,6 +186,12 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   Future<void> _stopRecording() async {
     debugPrint('[Hasabkey][overlay] _stopRecording CALLED');
     if (!_isRecording && _asr == null) {
+      if (mounted) {
+        setState(() {
+          _showLanguageSheet = false;
+          _displayText = '';
+        });
+      }
       debugPrint('[Hasabkey][overlay] _stopRecording early return: not recording');
       return;
     }
@@ -173,7 +199,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
     if (mounted) {
       setState(() {
         _isRecording = false;
-        _showCloseArea = false;
+        _showLanguageSheet = false;
         _displayText = '';
       });
     }
@@ -243,6 +269,19 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       _displayText = parts.join(' ');
       if (_displayText.isEmpty) _displayText = 'Listening\u2026';
     });
+    _scrollTranscriptToBottom();
+  }
+
+  void _scrollTranscriptToBottom() {
+    if (!_transcriptScroll.hasClients) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_transcriptScroll.hasClients) return;
+      _transcriptScroll.animateTo(
+        _transcriptScroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   @override
@@ -255,55 +294,16 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         clipBehavior: Clip.none,
         alignment: Alignment.center,
         children: [
-          if (_showCloseArea)
-            Positioned(
-              top: 0,
-              child: GestureDetector(
-                onTap: () {
-                  debugPrint('[Hasabkey][overlay] Close button tapped');
-                  _closeBubble();
-                },
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 8,
-                        spreadRadius: 1,
-                      )
-                    ],
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.close, color: Colors.white, size: 20),
-                      SizedBox(width: 6),
-                      Text(
-                        'Remove Bubble',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          decoration: TextDecoration.none,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          Positioned(
-            top: _showCloseArea ? 60 : 0,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: _buildContent(),
-            ),
+          Center(
+            child: _showLanguageSheet
+                ? Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _buildLanguageSelectorCard(),
+                    ),
+                  )
+                : _buildContent(),
           ),
         ],
       ),
@@ -312,7 +312,7 @@ class _BubbleOverlayState extends State<BubbleOverlay>
 
   Widget _buildContent() {
     if (!_isRecording) {
-      return GestureDetector(
+      final bubble = GestureDetector(
         key: const ValueKey('mic_bubble'),
         onTap: _toggle,
         onLongPress: _handleLongPress,
@@ -324,6 +324,14 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           child: _buildOrb(),
         ),
       );
+
+      if (_showLanguageSheet) {
+        return const SizedBox.shrink();
+      }
+
+      if (!_showLanguageSheet) {
+        return bubble;
+      }
     }
 
     return GestureDetector(
@@ -334,20 +342,37 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 70,
-        margin: const EdgeInsets.symmetric(horizontal: 10),
+        width: 120,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.black.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(35),
+          borderRadius: BorderRadius.circular(24),
           border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            SizedBox(
+              height: 64,
+              child: SingleChildScrollView(
+                controller: _transcriptScroll,
+                child: Text(
+                  _displayText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    decoration: TextDecoration.none,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  softWrap: true,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             Container(
               width: 54,
               height: 54,
-              margin: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.red.withOpacity(0.9),
@@ -361,23 +386,6 @@ class _BubbleOverlayState extends State<BubbleOverlay>
               ),
               child: const Icon(Icons.stop, color: Colors.white, size: 28),
             ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 20),
-                child: Text(
-                  _displayText,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    decoration: TextDecoration.none,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -390,6 +398,95 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       return const _StaticOrb();
     }
     return _AnimatedOrb(controller: controller);
+  }
+
+  Widget _buildLanguageSelectorCard() {
+    return Container(
+      width: 260,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.65),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.45),
+            blurRadius: 16,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Current: $_selectedLanguage',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              decoration: TextDecoration.none,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              _buildLanguageChip('Amharic'),
+              _buildLanguageChip('Afan Oromo'),
+              _buildLanguageChip('Tigrigna'),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Divider(color: Colors.white.withOpacity(0.12), height: 1),
+          const SizedBox(height: 5),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _closeBubble,
+              icon: const Icon(Icons.close, size: 10),
+              label: const Text('Remove bubble'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+            ),
+          ),
+  
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLanguageChip(String label) {
+    final selected = _selectedLanguage == label;
+    return GestureDetector(
+      onTap: () => _selectLanguage(label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFFA78BFF)
+              : Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.white : Colors.white70,
+            fontSize: 12,
+            decoration: TextDecoration.none,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
   }
 }
 
