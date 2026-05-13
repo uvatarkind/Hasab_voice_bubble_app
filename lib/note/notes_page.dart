@@ -58,18 +58,30 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Future<void> _openEditor({Note? note}) async {
-    final result = await Navigator.of(context).push<Note?>(
+    final result = await Navigator.of(context).push<NoteEditorResult?>(
       MaterialPageRoute(builder: (_) => NoteEditorPage(note: note)),
     );
 
     if (result == null) return;
 
-    final index = _notes.indexWhere((n) => n.id == result.id);
+    if (!result.saved) {
+      if (note == null) return;
+      setState(() {
+        _notes.removeWhere((n) => n.id == note.id);
+      });
+      await _saveNotes();
+      return;
+    }
+
+    final savedNote = result.note;
+    if (savedNote == null) return;
+
+    final index = _notes.indexWhere((n) => n.id == savedNote.id);
     setState(() {
       if (index >= 0) {
-        _notes[index] = result;
+        _notes[index] = savedNote;
       } else {
-        _notes.insert(0, result);
+        _notes.insert(0, savedNote);
       }
       _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     });
@@ -78,9 +90,9 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   String _noteTitle(Note note) {
-    final lines = note.content.trim().split('\n');
-    final first = lines.isNotEmpty ? lines.first.trim() : '';
-    return first.isEmpty ? 'Untitled' : first;
+    final title = note.title?.trim() ?? '';
+    if (title.isNotEmpty) return title;
+    return _formatDate(note.updatedAt);
   }
 
   String _notePreview(Note note) {
@@ -179,20 +191,24 @@ class _NotesPageState extends State<NotesPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final crossAxisCount = width >= 900
-            ? 3
-            : width >= 620
-                ? 2
-                : 1;
+        final isNarrow = width < 420;
+        final horizontalPadding = isNarrow ? 10.0 : 16.0;
+        final spacing = isNarrow ? 10.0 : 14.0;
+        final childAspectRatio = isNarrow ? 0.6 : 0.85;
+        final tilePadding = isNarrow ? 12.0 : 16.0;
+        final titleFontSize = isNarrow ? 13.5 : 15.0;
+        final previewLines = isNarrow ? 4 : 5;
+        final previewFontSize = isNarrow ? 11.5 : 12.5;
+        const crossAxisCount = 3;
         return Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(horizontalPadding),
           child: GridView.builder(
             itemCount: _notes.length,
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 14,
-              mainAxisSpacing: 14,
-              childAspectRatio: crossAxisCount == 1 ? 1.8 : 0.95,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing,
+              childAspectRatio: childAspectRatio,
             ),
             itemBuilder: (context, index) {
               final note = _notes[index];
@@ -200,7 +216,7 @@ class _NotesPageState extends State<NotesPage> {
                 onTap: () => _openEditor(note: note),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(tilePadding),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(20),
                     gradient: const LinearGradient(
@@ -224,20 +240,20 @@ class _NotesPageState extends State<NotesPage> {
                         _noteTitle(note),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: titleFontSize,
                           color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: isNarrow ? 8 : 10),
                       Text(
                         _notePreview(note),
-                        maxLines: crossAxisCount == 1 ? 3 : 5,
+                        maxLines: previewLines,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 12.5,
+                          fontSize: previewFontSize,
                           height: 1.4,
                         ),
                       ),

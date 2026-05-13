@@ -429,25 +429,24 @@ class _BubbleOverlayState extends State<BubbleOverlay>
           ),
         ),
         SizedBox(height: isCompact ? 6 : 8),
-        if (!isCompact)
-          SizedBox(
-            height: 66,
-            child: SingleChildScrollView(
-              controller: _transcriptScroll,
-              child: Text(
-                _displayText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12.5,
-                  decoration: TextDecoration.none,
-                  fontWeight: FontWeight.w600,
-                ),
-                softWrap: true,
+        SizedBox(
+          height: isCompact ? 36 : 66,
+          child: SingleChildScrollView(
+            controller: _transcriptScroll,
+            child: Text(
+              _displayText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: isCompact ? 10.5 : 12.5,
+                decoration: TextDecoration.none,
+                fontWeight: FontWeight.w600,
               ),
+              softWrap: true,
             ),
           ),
-        if (!isCompact) const SizedBox(height: 8),
+        ),
+        SizedBox(height: isCompact ? 6 : 8),
         Container(
           width: buttonSize,
           height: buttonSize,
