@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shimmer/shimmer.dart';
 import 'bubble/overlay.dart';
 import 'note/notes_page.dart';
@@ -27,28 +28,82 @@ void overlayMain() {
   ));
 }
 
-class HasabkeyApp extends StatelessWidget {
+class HasabkeyApp extends StatefulWidget {
   const HasabkeyApp({super.key});
 
   @override
+  State<HasabkeyApp> createState() => _HasabkeyAppState();
+}
+
+class _HasabkeyAppState extends State<HasabkeyApp> {
+  static const _themeKey = 'settings_theme_mode';
+
+  ThemeMode _themeMode = ThemeMode.dark;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_themeKey);
+    if (!mounted) return;
+    setState(() {
+      _themeMode = stored == 'light' ? ThemeMode.light : ThemeMode.dark;
+      _ready = true;
+    });
+  }
+
+  Future<void> _setThemeMode(ThemeMode mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeKey, mode == ThemeMode.light ? 'light' : 'dark');
+    if (!mounted) return;
+    setState(() {
+      _themeMode = mode;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
     return MaterialApp(
       title: 'Hasabkey',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
+      theme: ThemeData.light().copyWith(
+        scaffoldBackgroundColor: const Color(0xFFF5F6FA),
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF2196F3),
+          surface: Color(0xFFF5F6FA),
+        ),
+      ),
+      darkTheme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF1A1A2E),
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF2196F3),
           surface: Color(0xFF1A1A2E),
         ),
       ),
+      themeMode: _themeMode,
       initialRoute: '/splash',
       routes: {
         '/splash': (_) => const SplashScreen(),
         '/permissions': (_) => const PermissionSetupPage(),
         '/home': (_) => const HomePage(),
         '/notes': (_) => const NotesPage(),
-        '/settings': (_) => const SettingsPage(),
+        '/settings': (_) => SettingsPage(
+              themeMode: _themeMode,
+              onThemeModeChanged: _setThemeMode,
+            ),
       },
     );
   }
