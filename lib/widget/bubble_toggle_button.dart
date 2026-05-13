@@ -17,6 +17,10 @@ class BubbleToggleButton extends StatefulWidget {
 class _BubbleToggleButtonState extends State<BubbleToggleButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _waveController;
+  static const _activeTop = Color(0xFFB38CFF);
+  static const _activeBottom = Color(0xFF6B4DFF);
+  static const _inactiveTop = Color(0xFF5BE7A9);
+  static const _inactiveBottom = Color(0xFF1FAE6F);
 
   @override
   void initState() {
@@ -47,9 +51,9 @@ class _BubbleToggleButtonState extends State<BubbleToggleButton>
     return AnimatedBuilder(
       animation: _waveController,
       builder: (context, _) {
-        final waveColor = widget.isActive
-            ? const Color.fromARGB(255, 105, 33, 153)
-            : Colors.green;
+        final waveColor = widget.isActive ? _activeTop : _inactiveTop;
+        final topColor = widget.isActive ? _activeTop : _inactiveTop;
+        final bottomColor = widget.isActive ? _activeBottom : _inactiveBottom;
         return CustomPaint(
           painter: _WavePainter(
             progress: _waveController.value,
@@ -62,20 +66,27 @@ class _BubbleToggleButtonState extends State<BubbleToggleButton>
               onTap: widget.onTap,
               customBorder: const CircleBorder(),
               child: Container(
-                width: 180,
-                height: 180,
+                width: 168,
+                height: 168,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: widget.isActive
-                      ? const Color.fromARGB(255, 105, 33, 153)
-                      : Colors.green,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [topColor, bottomColor],
+                  ),
+                  border: Border.all(color: Colors.white.withOpacity(0.12)),
                   boxShadow: [
                     BoxShadow(
-                      color:
-                          (widget.isActive ? const Color.fromARGB(255, 0, 0, 0) : Colors.green)
-                              .withOpacity(0.35),
-                      blurRadius: 24,
-                      spreadRadius: 4,
+                      color: bottomColor.withOpacity(0.4),
+                      blurRadius: 28,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 12),
+                    ),
+                    const BoxShadow(
+                      color: Colors.black54,
+                      blurRadius: 20,
+                      offset: Offset(0, 8),
                     ),
                   ],
                 ),
@@ -85,13 +96,13 @@ class _BubbleToggleButtonState extends State<BubbleToggleButton>
                     Icon(
                       widget.isActive ? Icons.stop : Icons.mic,
                       color: Colors.white,
-                      size: 48,
+                      size: 44,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       widget.isActive ? 'Stop' : 'Start',
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 17,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),

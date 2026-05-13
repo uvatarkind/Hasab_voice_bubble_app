@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shimmer/shimmer.dart';
 import 'bubble/overlay.dart';
 import 'note/notes_page.dart';
 import 'setting/permission_setup_page.dart';
@@ -76,15 +77,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _overlayGranted = false;
   bool _accessibilityEnabled = false;
   bool _notificationGranted = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _checkAll();
+    _initData();
     _listenOverlay();
     _startOverlayPolling();
     debugPrint('[Hasabkey] initState complete');
+  }
+
+  Future<void> _initData() async {
+    await _checkAll();
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -224,7 +235,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           return;
         }
       }
-
+ 
       // Android 13+ notification permission is required for Foreground Services
       final notificationStatus = await Permission.notification.request();
       debugPrint('[Hasabkey] notification request result: $notificationStatus');
@@ -272,15 +283,116 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Widget _buildStatusChip() {
+    final active = _overlayActive;
+    final chipColor = active ? const Color(0xFF0E2E2C) : const Color(0xFF222733);
+    final borderColor = active ? const Color(0xFF2EE6A6) : Colors.white12;
+    final dotColor = active ? const Color(0xFF2EE6A6) : Colors.white38;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: chipColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            active ? 'Active' : 'Inactive',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Colors.white70,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return Shimmer.fromColors(
+      baseColor: Colors.white.withOpacity(0.08),
+      highlightColor: Colors.white.withOpacity(0.18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 168,
+            height: 168,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: 140,
+            height: 16,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: 90,
+            height: 12,
+            color: Colors.white,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        BubbleToggleButton(
+          isActive: _overlayActive,
+          onTap: _toggleBubble,
+        ),
+        const SizedBox(height: 18),
+        _buildStatusChip(),
+        const SizedBox(height: 10),
+        Text(
+          _overlayActive ? 'Bubble is running' : 'Tap to start dictation',
+          style: const TextStyle(
+            fontSize: 13,
+            color: Colors.white54,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leadingWidth: 56,
         leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Image.asset('assets/hasab_logo.png'),
+          padding: const EdgeInsets.all(6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset('assets/hasab_logo.png', fit: BoxFit.cover),
+          ),
         ),
-        title: const Text('Hasab Bubble'),
+        title: const Text(
+          'Hasab Bubble',
+          style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
+        ),
         actions: [
           IconButton(
             onPressed: () => Navigator.of(context).pushNamed('/notes'),
@@ -294,27 +406,49 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                    BubbleToggleButton(
-                      isActive: _overlayActive,
-                      onTap: _toggleBubble,
-                    ),
-                const SizedBox(height: 12),
-                Text(
-                  'Bubble: ${_overlayActive ? "Active" : "Inactive"}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _overlayActive ? Colors.greenAccent : Colors.grey,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0C0F1E), Color(0xFF121C2C), Color(0xFF151A2E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                top: -120,
+                right: -80,
+                child: Container(
+                  width: 220,
+                  height: 220,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF2EE6A6).withOpacity(0.08),
                   ),
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                bottom: -140,
+                left: -100,
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF66E3FF).withOpacity(0.08),
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.center,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: _isLoading ? _buildLoading() : _buildContent(),
+                ),
+              ),
+            ],
           ),
         ),
       ),

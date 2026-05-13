@@ -47,8 +47,14 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
     return WillPopScope(
       onWillPop: _handleBack,
       child: Scaffold(
+        extendBodyBehindAppBar: true,
         appBar: AppBar(
-          title: const Text('Write note'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: const Text(
+            'Write note',
+            style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
+          ),
           actions: [
             IconButton(
               onPressed: _saveAndPop,
@@ -57,24 +63,38 @@ class _NoteEditorPageState extends State<NoteEditorPage> {
             ),
           ],
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: TextField(
-            controller: _controller,
-            maxLines: null,
-            expands: true,
-            keyboardType: TextInputType.multiline,
-            textAlignVertical: TextAlignVertical.top,
-            decoration: InputDecoration(
-              hintText: 'Write your notes here...',
-              filled: true,
-              fillColor: const Color(0xFF15151F),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0C0F1E), Color(0xFF121C2C), Color(0xFF151A2E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _controller,
+                maxLines: null,
+                expands: true,
+                keyboardType: TextInputType.multiline,
+                textAlignVertical: TextAlignVertical.top,
+                cursorColor: Colors.white70,
+                decoration: InputDecoration(
+                  hintText: 'Write your notes here...',
+                  hintStyle: const TextStyle(color: Colors.white38),
+                  filled: true,
+                  fillColor: const Color(0xFF141928),
+                  contentPadding: const EdgeInsets.all(16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                style: const TextStyle(color: Colors.white, height: 1.4),
               ),
             ),
-            style: const TextStyle(color: Colors.white),
           ),
         ),
       ),

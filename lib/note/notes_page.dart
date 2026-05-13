@@ -92,8 +92,14 @@ class _NotesPageState extends State<NotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Notes'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text(
+          'Notes',
+          style: TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
+        ),
         actions: [
           IconButton(
             onPressed: () => _openEditor(),
@@ -102,11 +108,22 @@ class _NotesPageState extends State<NotesPage> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _notes.isEmpty
-              ? _buildEmptyState()
-              : _buildNotesGrid(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0C0F1E), Color(0xFF121C2C), Color(0xFF151A2E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _notes.isEmpty
+                  ? _buildEmptyState()
+                  : _buildNotesGrid(),
+        ),
+      ),
     );
   }
 
@@ -115,17 +132,43 @@ class _NotesPageState extends State<NotesPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.note_alt_outlined, size: 64, color: Colors.white70),
-          const SizedBox(height: 12),
-          const Text(
-            'No notes yet, create one',
-            style: TextStyle(fontSize: 16, color: Colors.white70),
+          Container(
+            width: 88,
+            height: 88,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withOpacity(0.06),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: const Icon(
+              Icons.note_alt_outlined,
+              size: 40,
+              color: Colors.white70,
+            ),
           ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
+          const SizedBox(height: 16),
+          const Text(
+            'No notes yet',
+            style: TextStyle(fontSize: 18, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Create your first note to get started',
+            style: TextStyle(fontSize: 13, color: Colors.white60),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
             onPressed: () => _openEditor(),
             icon: const Icon(Icons.edit),
-            label: const Text('Write'),
+            label: const Text('Write a note'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00A8FF),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),
@@ -133,62 +176,84 @@ class _NotesPageState extends State<NotesPage> {
   }
 
   Widget _buildNotesGrid() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: GridView.builder(
-        itemCount: _notes.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-          childAspectRatio: 0.95,
-        ),
-        itemBuilder: (context, index) {
-          final note = _notes[index];
-          return InkWell(
-            onTap: () => _openEditor(note: note),
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF15151F),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _noteTitle(note),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _notePreview(note),
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    _formatDate(note.updatedAt),
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
-                ],
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final crossAxisCount = width >= 900
+            ? 3
+            : width >= 620
+                ? 2
+                : 1;
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: GridView.builder(
+            itemCount: _notes.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+              childAspectRatio: crossAxisCount == 1 ? 1.8 : 0.95,
             ),
-          );
-        },
-      ),
+            itemBuilder: (context, index) {
+              final note = _notes[index];
+              return InkWell(
+                onTap: () => _openEditor(note: note),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF141928), Color(0xFF101724)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _noteTitle(note),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _notePreview(note),
+                        maxLines: crossAxisCount == 1 ? 3 : 5,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          height: 1.4,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatDate(note.updatedAt),
+                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 

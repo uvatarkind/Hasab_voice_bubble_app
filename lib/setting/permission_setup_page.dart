@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shimmer/shimmer.dart';
 
 class PermissionSetupPage extends StatefulWidget {
   const PermissionSetupPage({super.key});
@@ -18,11 +19,21 @@ class _PermissionSetupPageState extends State<PermissionSetupPage> {
   bool _accessibilityEnabled = false;
   bool _notificationGranted = false;
   bool _navigated = false;
+  bool _isInit = true;
 
   @override
   void initState() {
     super.initState();
-    _checkAll();
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    await _checkAll();
+    if (mounted) {
+      setState(() {
+        _isInit = false;
+      });
+    }
   }
 
   bool get _allGranted =>
@@ -76,28 +87,57 @@ class _PermissionSetupPageState extends State<PermissionSetupPage> {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 12),
-                const Text(
-                  'Permissions setup',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+          child: _isInit
+              ? Shimmer.fromColors(
+                  baseColor: Colors.white.withOpacity(0.1),
+                  highlightColor: Colors.white.withOpacity(0.2),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 12),
+                        Container(width: 200, height: 32, color: Colors.white),
+                        const SizedBox(height: 12),
+                        Container(width: 280, height: 16, color: Colors.white),
+                        const SizedBox(height: 32),
+                        for (int i = 0; i < 4; i++) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            width: double.infinity,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'We need a few permissions to run the voice bubble and insert text.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white70,
-                  ),
-                ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Permissions setup',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'We need a few permissions to run the voice bubble and insert text.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white70,
+                        ),
+                      ),
                 const SizedBox(height: 20),
                 _buildPermissionCard(),
                 const SizedBox(height: 20),
