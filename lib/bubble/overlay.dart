@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:hasabkey/bubble/asr_client.dart';
+import 'package:rive/rive.dart' hide LinearGradient;
 import 'package:record/record.dart';
 
 /// 500ms of 16-bit mono at 16kHz = 16000 bytes
@@ -35,11 +36,8 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   String _displayText = '';
   final ScrollController _transcriptScroll = ScrollController();
 
-  AnimationController? _orbController;
-
   @override
   void dispose() {
-    _orbController?.dispose();
     _transcriptScroll.dispose();
     _stopRecording();
     super.dispose();
@@ -58,21 +56,6 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   void initState() {
     super.initState();
     _showLanguageSheet = false;
-    _ensureOrbController();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _ensureOrbController();
-  }
-
-  void _ensureOrbController() {
-    if (_orbController != null) return;
-    _orbController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 6),
-    )..repeat();
   }
 
   void _handleLongPress() {
@@ -318,8 +301,30 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         onLongPress: _handleLongPress,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          width: 80,
-          height: 80,
+          width: 88,
+          height: 88,
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1A2138), Color(0xFF0F1529)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF6B4DFF).withOpacity(0.28),
+                blurRadius: 16,
+                spreadRadius: 1,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.5),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
           alignment: Alignment.center,
           child: _buildOrb(),
         ),
@@ -341,63 +346,162 @@ class _BubbleOverlayState extends State<BubbleOverlay>
         _stopRecording();
       },
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 120,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.black.withOpacity(0.85),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.red.withOpacity(0.5), width: 2),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              height: 64,
-              child: SingleChildScrollView(
-                controller: _transcriptScroll,
-                child: Text(
-                  _displayText,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    decoration: TextDecoration.none,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  softWrap: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxHeight < 170 ||
+              constraints.maxWidth < 140 ||
+              !constraints.hasBoundedHeight;
+            final width = constraints.hasBoundedWidth
+              ? (constraints.maxWidth < 148.0
+                ? constraints.maxWidth
+                : 148.0)
+              : 148.0;
+          final verticalPadding = isCompact ? 8.0 : 12.0;
+
+          return Container(
+            width: width,
+            padding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: verticalPadding,
+            ),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1C2135), Color(0xFF12172A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.6),
+                  blurRadius: 16,
+                  offset: const Offset(0, 10),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Container(
-              width: 54,
-              height: 54,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.red.withOpacity(0.9),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.withOpacity(0.3),
-                    spreadRadius: 2,
-                    blurRadius: 10,
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.stop, color: Colors.white, size: 28),
-            ),
-          ],
-        ),
+            child: _buildStopBarContent(isCompact: isCompact),
+          );
+        },
       ),
     );
   }
 
+  Widget _buildStopBarContent({required bool isCompact}) {
+    final buttonSize = isCompact ? 40.0 : 52.0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompact ? 8 : 10,
+            vertical: isCompact ? 3 : 4,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2A173E),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFF6B4DFF)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xFFFF6B6B),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Recording',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: isCompact ? 10 : 11,
+                  decoration: TextDecoration.none,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: isCompact ? 6 : 8),
+        if (!isCompact)
+          SizedBox(
+            height: 66,
+            child: SingleChildScrollView(
+              controller: _transcriptScroll,
+              child: Text(
+                _displayText,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  decoration: TextDecoration.none,
+                  fontWeight: FontWeight.w600,
+                ),
+                softWrap: true,
+              ),
+            ),
+          ),
+        if (!isCompact) const SizedBox(height: 8),
+        Container(
+          width: buttonSize,
+          height: buttonSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFF5A79), Color(0xFFFF2E5C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF2E5C).withOpacity(0.4),
+                blurRadius: 12,
+              ),
+            ],
+          ),
+          child: Icon(
+            Icons.stop,
+            color: Colors.white,
+            size: isCompact ? 22 : 26,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildOrb() {
-    final controller = _orbController;
-    if (controller == null) {
-      return const _StaticOrb();
-    }
-    return _AnimatedOrb(controller: controller);
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: RiveAnimation.asset(
+        'assets/orbe.riv',
+        fit: BoxFit.contain,
+        onInit: _onRiveInit,
+      ),
+    );
+  }
+
+  static void _onRiveInit(Artboard artboard) {
+    const backgroundHints = ['background', 'bg', 'backdrop'];
+    artboard.forEachComponent((component) {
+      final name = component.name.toLowerCase();
+      if (backgroundHints.any(name.contains)) {
+        final dynamic dyn = component;
+        try {
+          dyn.isHidden = true;
+          return;
+        } catch (_) {}
+        try {
+          dyn.opacity = 0.0;
+        } catch (_) {}
+      }
+    });
   }
 
   Widget _buildLanguageSelectorCard() {
@@ -490,106 +594,3 @@ class _BubbleOverlayState extends State<BubbleOverlay>
   }
 }
 
-class _StaticOrb extends StatelessWidget {
-  const _StaticOrb();
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(64, 64),
-      painter: _OrbPainter(progress: 0.0),
-      child: const SizedBox(
-        width: 64,
-        height: 64,
-        child: Icon(Icons.mic, color: Colors.white, size: 28),
-      ),
-    );
-  }
-}
-
-class _AnimatedOrb extends StatelessWidget {
-  const _AnimatedOrb({required this.controller});
-
-  final Animation<double> controller;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        return CustomPaint(
-          size: const Size(64, 64),
-          painter: _OrbPainter(progress: controller.value),
-          child: const SizedBox(
-            width: 64,
-            height: 64,
-            child: Icon(Icons.mic, color: Colors.white, size: 28),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _OrbPainter extends CustomPainter {
-  _OrbPainter({required this.progress});
-
-  final double progress;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF9A6BFF).withOpacity(0.9),
-          const Color(0xFF5B2BFF).withOpacity(0.55),
-          const Color(0xFF1A0B2E).withOpacity(0.0),
-        ],
-        stops: const [0.0, 0.6, 1.0],
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 1.2));
-    canvas.drawCircle(center, radius * 1.05, glowPaint);
-
-    final basePaint = Paint()
-      ..shader = SweepGradient(
-        startAngle: 0,
-        endAngle: 6.283185307179586,
-        colors: [
-          const Color(0xFFB67BFF),
-          const Color(0xFF6A35FF),
-          const Color(0xFF2A124F),
-          const Color(0xFFB67BFF),
-        ],
-        stops: const [0.0, 0.45, 0.75, 1.0],
-        transform: GradientRotation(progress * 6.283185307179586),
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-
-    final blurPaint = Paint()
-      ..color = const Color(0xFF7B4CFF).withOpacity(0.25)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
-
-    canvas.drawCircle(center, radius, blurPaint);
-    canvas.drawCircle(center, radius * 0.95, basePaint);
-
-    final wavePaint = Paint()
-      ..shader = LinearGradient(
-        colors: [
-          const Color(0xFFFFFFFF).withOpacity(0.0),
-          const Color(0xFFFFFFFF).withOpacity(0.35),
-          const Color(0xFFFFFFFF).withOpacity(0.0),
-        ],
-        stops: const [0.2, 0.5, 0.8],
-        begin: Alignment(-1 + (progress * 2), -1),
-        end: Alignment(1 + (progress * 2), 1),
-      ).createShader(Rect.fromCircle(center: center, radius: radius));
-
-    canvas.drawCircle(center, radius * 0.75, wavePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _OrbPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}

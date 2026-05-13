@@ -15,6 +15,7 @@ dependencies:
   permission_handler: ^11.3.1
   shared_preferences: ^2.2.3
   shimmer: ^3.0.0
+  rive: ^0.13.0
 
 dev_dependencies:
   flutter_test:
@@ -26,3 +27,4 @@ flutter:
   assets:
     - assets/adi-registration.properties
     - assets/hasab_logo.png
+    - assets/orbe.riv
