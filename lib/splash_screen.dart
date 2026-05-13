@@ -35,10 +35,10 @@ class _SplashScreenState extends State<SplashScreen> {
         child: SafeArea(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.mic, size: 72, color: Colors.white),
-              SizedBox(height: 16),
-              Text(
+            children: [
+              Image.asset('assets/hasab_logo.png', width: 120, height: 120),
+              const SizedBox(height: 16),
+              const Text(
                 'Hasabkey',
                 style: TextStyle(
                   fontSize: 28,

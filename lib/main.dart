@@ -276,6 +276,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Image.asset('assets/hasab_logo.png'),
+        ),
         title: const Text('Hasab Bubble'),
         actions: [
           IconButton(
