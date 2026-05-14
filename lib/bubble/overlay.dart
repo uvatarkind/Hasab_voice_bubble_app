@@ -142,6 +142,13 @@ class _BubbleOverlayState extends State<BubbleOverlay>
       });
       _stopRecording();
     };
+    _asr!.onStatus = (message) {
+      debugPrint('[Hasabkey][overlay] status: $message');
+      if (!mounted) return;
+      setState(() {
+        _displayText = message;
+      });
+    };
     _asr!.onReady = () async {
       debugPrint('[Hasabkey][overlay] asr ready, starting mic stream');
       _recorder = AudioRecorder();
