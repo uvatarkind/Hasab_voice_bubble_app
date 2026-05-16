@@ -5,7 +5,14 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shimmer/shimmer.dart';
 
 class PermissionSetupPage extends StatefulWidget {
-  const PermissionSetupPage({super.key});
+  const PermissionSetupPage({
+    super.key,
+    this.autoNavigate = true,
+    this.showAppBar = false,
+  });
+
+  final bool autoNavigate;
+  final bool showAppBar;
 
   @override
   State<PermissionSetupPage> createState() => _PermissionSetupPageState();
@@ -54,7 +61,9 @@ class _PermissionSetupPageState extends State<PermissionSetupPage> {
     });
 
     if (_allGranted) {
-      _goNext();
+      if (widget.autoNavigate) {
+        _goNext();
+      }
     }
   }
 
@@ -76,6 +85,18 @@ class _PermissionSetupPageState extends State<PermissionSetupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: widget.showAppBar,
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text(
+                'Permissions',
+                style:
+                    TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.3),
+              ),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+            )
+          : null,
       body: Container(
         width: double.infinity,
         height: double.infinity,
